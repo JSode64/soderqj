@@ -1,3 +1,5 @@
+use crate::maps::FaceType;
+
 use super::{
     laser::{Direction, Laser},
     lseg::LSeg,
@@ -7,7 +9,7 @@ use super::{
 use sdl3::{
     keyboard::Scancode,
     pixels::Color,
-    render::{Canvas, FPoint, FRect},
+    render::{Canvas, FRect},
     video::Window,
     EventPump,
 };
@@ -23,8 +25,8 @@ pub struct Player {
     /// The player's velocity
     v: Vec2,
 
-    /// The line segment the player is standing on (is `None` if not standing on one)
-    foot: Option<LSeg>,
+    /// Tracks whether the player is on the ground or not
+    on_ground: bool,
 }
 
 impl Player {
@@ -61,7 +63,7 @@ impl Player {
             laser: Laser::new_inactive(),
             p: Vec2::new(800.0, 0.0),
             v: Vec2::zero(),
-            foot: None,
+            on_ground: false,
         }
     }
 
@@ -123,12 +125,12 @@ impl Player {
         self.v.x = self.v.x.clamp(-Self::MAX_VX, Self::MAX_VX);
 
         // Update y-velocity
-        if self.foot.is_none() {
+        if !self.on_ground {
             self.v.y += Self::GRAVITY;
         } else if s {
             self.p.y += Self::JMP_VY;
             self.v.y = Self::JMP_VY;
-            self.foot = None;
+            self.on_ground = false;
         }
     }
 
@@ -154,45 +156,34 @@ impl Player {
 
     /// Handles the player collision with the map
     fn do_collision(&mut self, map: &Map) {
-        let post = self.p + self.v;
+        let path = LSeg::new(self.p, self.p + self.v);
+        let mut end = self.p + self.v;
+        self.on_ground = false;
 
-        if self.foot.is_some()
-            && (self.foot.unwrap().b - self.foot.unwrap().a)
-                .cross(self.p - self.foot.unwrap().a)
-                .abs()
-                <= 0.001
-        {
-            self.p = self.foot.unwrap().closest(post);
-            self.v.y = 0.0;
-        } else {
-            let path = LSeg::new(self.p, post);
-            self.foot = None;
-            map.segs_iter().for_each(|&seg| if seg.hits(&path) {});
-            if let Some(&seg) = map.segs_iter().find(|&seg| seg.hits(&path)) {
-                self.foot = Some(seg);
-                self.p = seg.closest(post);
-                self.v.y = 0.0;
-            } else {
-                self.p = post;
-            }
-        }
-
-        /*self.on_ground = false;
-        map.tri_iter().for_each(|&tri| {
-            if tri.contains_point(self.p) {
-                let p = tri.closest_to_point(self.p);
-
-                // Handle grounding
-                if p.y < self.p.y {
-                    self.on_ground = true;
-                    self.v.y = 0.0;
-                } else if self.v.y < 0.0 {
-                    self.v.y = 0.0;
+        map.segs_iter().for_each(|&(seg, face)| {
+            if seg.hits(&path) {
+                match face {
+                    FaceType::Floor => {
+                        // Floor; clamp, stop falling, prevent vertical movement
+                        self.p = seg.closest(self.p + self.v);
+                        self.v.y = 0.0;
+                        self.on_ground = true;
+                        end.y = self.p.y;
+                    }
+                    FaceType::Wall => {
+                        // Wall; stop horizontal movement
+                        self.v.x = 0.0;
+                        end.x = self.p.x;
+                    }
+                    FaceType::Ceiling => {
+                        // Ceiling; stop vertical movement
+                        self.v.y = 0.0;
+                        end.y = self.p.y;
+                    }
                 }
-
-                // Move to be centered at the point
-                self.p = p;
             }
-        });*/
+        });
+
+        self.p = end;
     }
 }

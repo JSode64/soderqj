@@ -58,9 +58,9 @@ impl Vec2 {
     }
 }
 
-impl Into<FPoint> for Vec2 {
-    fn into(self) -> FPoint {
-        FPoint::new(self.x, self.y)
+impl From<Vec2> for FPoint {
+    fn from(value: Vec2) -> Self {
+        Self::new(value.x, value.y)
     }
 }
 

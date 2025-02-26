@@ -29,8 +29,13 @@ impl LSeg {
 
     /// Returns true if the point is in the line segment's box, else false
     pub fn contains(&self, p: Vec2) -> bool {
-        (p.x - self.a.x).signum() != (p.x - self.b.x)
-            && (p.y - self.a.y).signum() != (p.y - self.b.y).signum()
+        if (self.b - self.a).cross(p - self.a).abs() > f32::EPSILON {
+            return false;
+        }
+
+        let within_x = p.x >= self.a.x.min(self.b.x) && p.x <= self.a.x.max(self.b.x);
+        let within_y = p.y >= self.a.y.min(self.b.y) && p.y <= self.a.y.max(self.b.y);
+        within_x && within_y
     }
 
     /// Returns true if the line segments collide, false otherwise.
@@ -40,6 +45,10 @@ impl LSeg {
         let a2 = (self.b - self.a).cross(other.b - self.a).signum();
         let b1 = (other.b - other.a).cross(self.a - other.a).signum();
         let b2 = (other.b - other.a).cross(self.b - other.a).signum();
-        a1 != a2 && b1 != b2
+        if a1 != a2 && b1 != b2 {
+            return true;
+        }
+
+        self.contains(other.a) || self.contains(other.b)
     }
 }

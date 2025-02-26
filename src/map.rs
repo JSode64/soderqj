@@ -1,11 +1,14 @@
-use super::{lseg::LSeg, maps::MAPS};
+use super::{
+    lseg::LSeg,
+    maps::{FaceType, MAPS},
+};
 use sdl3::{keyboard::Scancode, pixels::Color, render::Canvas, video::Window, EventPump};
 use std::slice::Iter;
 
 #[derive(Clone)]
 pub struct Map {
     /// A slice of all map triangles
-    segs: &'static [LSeg],
+    segs: &'static [(LSeg, FaceType)],
 
     /// The map index
     i: usize,
@@ -22,11 +25,11 @@ impl Map {
         cnv.set_draw_color(Color::WHITE);
         self.segs
             .iter()
-            .for_each(|seg| cnv.draw_line(seg.a, seg.b).unwrap());
+            .for_each(|(seg, _)| cnv.draw_line(seg.a, seg.b).unwrap());
     }
 
     /// Returns an iterator over the map's triangles
-    pub fn segs_iter(&self) -> Iter<'_, LSeg> {
+    pub fn segs_iter(&self) -> Iter<'_, (LSeg, FaceType)> {
         self.segs.iter()
     }
 

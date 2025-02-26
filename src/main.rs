@@ -3,7 +3,6 @@ mod lseg;
 mod map;
 mod maps;
 mod player;
-mod tri;
 mod vec2;
 
 use map::Map;
