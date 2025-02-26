@@ -1,5 +1,7 @@
 mod laser;
+mod lseg;
 mod map;
+mod maps;
 mod player;
 mod tri;
 mod vec2;
@@ -27,7 +29,7 @@ fn main() {
     let mut prv = Instant::now();
 
     let mut p = Player::new();
-    let map = Map::new();
+    let mut map = Map::new(0);
 
     loop {
         // Stop running if the window was closed
@@ -35,6 +37,7 @@ fn main() {
             break;
         }
 
+        map.update(&evp);
         p.update(&map, &evp);
         map.draw(&mut cnv);
         p.draw(&mut cnv);

@@ -1,12 +1,13 @@
 use super::{
     laser::{Direction, Laser},
+    lseg::LSeg,
     map::Map,
     vec2::Vec2,
 };
 use sdl3::{
     keyboard::Scancode,
     pixels::Color,
-    render::{Canvas, FRect},
+    render::{Canvas, FPoint, FRect},
     video::Window,
     EventPump,
 };
@@ -16,22 +17,22 @@ pub struct Player {
     /// The player's laser
     laser: Laser,
 
-    /// The player's body
-    body: FRect,
+    /// The player's position
+    p: Vec2,
 
-    /// The player's x-velocity
-    vx: f32,
+    /// The player's velocity
+    v: Vec2,
 
-    /// The player's y-velocity
-    vy: f32,
-
-    /// True if the player is on the ground, else false
-    on_ground: bool,
+    /// The line segment the player is standing on (is `None` if not standing on one)
+    foot: Option<LSeg>,
 }
 
 impl Player {
     /// Player body size (width and height)
     const S: f32 = 40.0;
+
+    /// Half the player body size
+    const HALF_S: f32 = Self::S / 2.0;
 
     /// Max player x-velocity
     const MAX_VX: f32 = 10.0;
@@ -58,10 +59,9 @@ impl Player {
     pub fn new() -> Self {
         Self {
             laser: Laser::new_inactive(),
-            body: FRect::new(780.0, 0.0, Self::S, Self::S),
-            vx: 0.0,
-            vy: 0.0,
-            on_ground: false,
+            p: Vec2::new(800.0, 0.0),
+            v: Vec2::zero(),
+            foot: None,
         }
     }
 
@@ -69,7 +69,13 @@ impl Player {
     pub fn draw(&self, cnv: &mut Canvas<Window>) {
         // Draw body
         cnv.set_draw_color(Self::COLOR);
-        cnv.fill_rect(self.body).unwrap();
+        cnv.fill_rect(FRect::new(
+            self.p.x - Self::HALF_S,
+            self.p.y - Self::HALF_S,
+            Self::S,
+            Self::S,
+        ))
+        .unwrap();
 
         // Draw laser
         if self.laser.is_active() {
@@ -94,6 +100,10 @@ impl Player {
     fn do_movement(&mut self, evp: &EventPump) {
         // Get user movement inputs
         let kbs = evp.keyboard_state();
+        if kbs.is_scancode_pressed(Scancode::Tab) {
+            *self = Self::new();
+            return;
+        }
         let a = kbs.is_scancode_pressed(Scancode::A);
         let d = kbs.is_scancode_pressed(Scancode::D);
         let s = kbs.is_scancode_pressed(Scancode::Space);
@@ -101,29 +111,25 @@ impl Player {
         // Update x-velocity
         if a != d {
             if a {
-                self.vx -= 0.5;
+                self.v.x -= 0.5;
             }
             if d {
-                self.vx += 0.5;
+                self.v.x += 0.5;
             }
         } else {
             // Deccelerate, setting x-velocity to zero if already slow
-            self.vx -= f32::min(Self::DEC_VX, self.vx.abs()) * self.vx.signum();
+            self.v.x -= f32::min(Self::DEC_VX, self.v.x.abs()) * self.v.x.signum();
         }
-        self.vx = self.vx.clamp(-Self::MAX_VX, Self::MAX_VX);
+        self.v.x = self.v.x.clamp(-Self::MAX_VX, Self::MAX_VX);
 
         // Update y-velocity
-        if s && self.on_ground {
-            self.vy = Self::JMP_VY;
-            self.on_ground = false;
+        if self.foot.is_none() {
+            self.v.y += Self::GRAVITY;
+        } else if s {
+            self.p.y += Self::JMP_VY;
+            self.v.y = Self::JMP_VY;
+            self.foot = None;
         }
-        if !self.on_ground {
-            self.vy += Self::GRAVITY;
-        }
-
-        // Move
-        self.body.x += self.vx;
-        self.body.y += self.vy;
     }
 
     /// Handles the user shooting
@@ -136,39 +142,57 @@ impl Player {
         // Shoot with the first key that is found down
         let kbs = evp.keyboard_state();
         if kbs.is_scancode_pressed(Scancode::Left) {
-            self.laser = Laser::new(self.center(), crate::laser::Direction::Left);
+            self.laser = Laser::new(self.p, crate::laser::Direction::Left);
         } else if kbs.is_scancode_pressed(Scancode::Right) {
-            self.laser = Laser::new(self.center(), Direction::Right);
+            self.laser = Laser::new(self.p, Direction::Right);
         } else if kbs.is_scancode_pressed(Scancode::Down) {
-            self.laser = Laser::new(self.center(), Direction::Down);
+            self.laser = Laser::new(self.p, Direction::Down);
         } else if kbs.is_scancode_pressed(Scancode::Up) {
-            self.laser = Laser::new(self.center(), Direction::Up);
+            self.laser = Laser::new(self.p, Direction::Up);
         }
     }
 
     /// Handles the player collision with the map
     fn do_collision(&mut self, map: &Map) {
-        let c = self.center();
-        self.on_ground = false;
-        if let Some(tri) = map.tri_iter().find(|&tri| tri.contains_point(c)) {
-            let p = tri.closest_to_point(c);
+        let post = self.p + self.v;
 
-            // Handle grounding
-            if p.y < c.y {
-                self.on_ground = true;
-                self.vy = 0.0;
-            } else if self.vy < 0.0 {
-                self.vy = 0.0;
+        if self.foot.is_some()
+            && (self.foot.unwrap().b - self.foot.unwrap().a)
+                .cross(self.p - self.foot.unwrap().a)
+                .abs()
+                <= 0.001
+        {
+            self.p = self.foot.unwrap().closest(post);
+            self.v.y = 0.0;
+        } else {
+            let path = LSeg::new(self.p, post);
+            self.foot = None;
+            map.segs_iter().for_each(|&seg| if seg.hits(&path) {});
+            if let Some(&seg) = map.segs_iter().find(|&seg| seg.hits(&path)) {
+                self.foot = Some(seg);
+                self.p = seg.closest(post);
+                self.v.y = 0.0;
+            } else {
+                self.p = post;
             }
-
-            // Move to be centered at the point
-            self.body.x = p.x - (Self::S / 2.0);
-            self.body.y = p.y - (Self::S / 2.0);
         }
-    }
 
-    /// Returns the player's center point
-    fn center(&self) -> Vec2 {
-        Vec2::new(self.body.x + (Self::S / 2.0), self.body.y + (Self::S / 2.0))
+        /*self.on_ground = false;
+        map.tri_iter().for_each(|&tri| {
+            if tri.contains_point(self.p) {
+                let p = tri.closest_to_point(self.p);
+
+                // Handle grounding
+                if p.y < self.p.y {
+                    self.on_ground = true;
+                    self.v.y = 0.0;
+                } else if self.v.y < 0.0 {
+                    self.v.y = 0.0;
+                }
+
+                // Move to be centered at the point
+                self.p = p;
+            }
+        });*/
     }
 }

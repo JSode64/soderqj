@@ -1,5 +1,5 @@
 use sdl3::render::FPoint;
-use std::ops::{Add, Div, Mul, Sub};
+use std::ops::{Add, Div, Mul, Neg, Sub};
 
 #[derive(Clone, Copy)]
 pub struct Vec2 {
@@ -9,13 +9,18 @@ pub struct Vec2 {
 
 impl Vec2 {
     /// Returns a new vec2 with the given x and y coordinates
-    pub fn new(x: f32, y: f32) -> Self {
+    pub const fn new(x: f32, y: f32) -> Self {
         Self { x, y }
     }
 
     /// Returns a new vec2 with the given x and y coordinate
-    pub fn from(xy: f32) -> Self {
+    pub const fn from(xy: f32) -> Self {
         Self { x: xy, y: xy }
+    }
+
+    /// Returns a new vec2 with zero x and y
+    pub const fn zero() -> Self {
+        Self { x: 0.0, y: 0.0 }
     }
 
     /// Returns the closest point to P (self) that is on the line segment AB
@@ -28,6 +33,11 @@ impl Vec2 {
     /// Returns the cross product of the vec2s (A x B)
     pub fn cross(self, other: Self) -> f32 {
         (self.x * other.y) - (self.y * other.x)
+    }
+
+    /// Returs the direction in radians to the given point
+    pub fn dir_to(self, other: Self) -> f32 {
+        f32::atan2(other.y - self.y, other.x - self.x)
     }
 
     /// Returns the dot product of the two vec2s
@@ -51,6 +61,14 @@ impl Vec2 {
 impl Into<FPoint> for Vec2 {
     fn into(self) -> FPoint {
         FPoint::new(self.x, self.y)
+    }
+}
+
+impl Neg for Vec2 {
+    type Output = Self;
+
+    fn neg(self) -> Self::Output {
+        Self::new(-self.x, -self.y)
     }
 }
 
