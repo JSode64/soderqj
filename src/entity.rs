@@ -1,9 +1,8 @@
 use crate::tile::TileID;
 
 use super::{
-    config::WIN_W,
-    geometry::{Rect, Square, Vec2},
-    map::Map,
+    config::{WIN_B, WIN_H, WIN_W},
+    geometry::{BBox, Square, Vec2},
 };
 use sdl3::{pixels::Color, render::Canvas, video::Window, EventPump};
 
@@ -26,13 +25,19 @@ pub trait Entity {
     /// Sets the entity's y-velocity to the given one.
     fn set_vy(&mut self, v: f32);
 
-    /// Sets the entity's `on_ground` variable to true.
-    ///
-    /// This essentially just enables the entity to jump.
-    fn set_on_ground(&mut self);
+    /// Called when the entity collides with something horizontally.
+    /// Should handle updating the x-velocity.
+    fn on_col_x(&mut self);
+
+    /// Called when the eneity collides with something vertically.
+    /// Should handle updating the y-velocity.
+    fn on_col_y(&mut self);
+
+    /// Sets the entity's "on ground" status based on the given boolean.
+    fn set_on_ground(&mut self, b: bool);
 
     /// Updates the entity.
-    fn update(&mut self, evp: &EventPump, map: &[(Rect, TileID)]);
+    fn update(&mut self, evp: &EventPump, map: &[(BBox, TileID)]);
 
     fn draw(&self, cnv: &mut Canvas<Window>) {
         cnv.set_draw_color(self.get_color());
@@ -42,51 +47,69 @@ pub trait Entity {
     /// Handles entity collision with the map.
     ///
     /// Takes two closures that return the new x and y velocity if collision occurs in either of the planes.
-    fn do_map_collision(
-        &mut self,
-        map: &[(Rect, TileID)],
-        vx_cb: fn(f32) -> f32,
-        vy_cb: fn(f32) -> f32,
-    ) where
+    fn do_map_collision(&mut self, map: &[(BBox, TileID)])
+    where
         Self: Sized,
     {
         let body = self.get_body();
         let s = body.s;
         let v = self.get_v();
-        let mut new_x = (body.x + v.x).clamp(0.0, WIN_W as f32 - s);
+        let mut new_x = body.x + v.x;
         let mut new_y = body.y + v.y;
 
-        for (rect, tile) in map {
+        // Check for out-of-bounds.
+        let (in_x, in_y) = WIN_B.contains_sqr(&Square::new(new_x, new_y, s));
+
+        if !in_x {
+            new_x = new_x.clamp(0.0, WIN_W as f32 - s);
+            self.on_col_x();
+        }
+        if !in_y {
+            new_y = new_y.clamp(0.0, WIN_H as f32 - s);
+            self.on_col_y();
+        }
+
+        // Set on ground until a landing collision is found.
+        // If not done here, walking off an edge will not mark the player as not-grounded.
+        self.set_on_ground(false);
+
+        for (bbox, tile) in map {
             let mut hit = false;
 
             // Check for horizontal collision.
             let new_b = Square::new(new_x, body.y, s);
-            if new_b.hits_rect(&rect) {
+
+            if bbox.collides_with_sqr(&new_b) {
                 if v.x > 0.0 {
-                    new_x = rect.x - s;
+                    // Hit from left.
+                    new_x = bbox.x - s;
                 } else {
-                    new_x = rect.x + rect.w;
+                    // Hit from right.
+                    new_x = bbox.a;
                 }
-                self.set_vx(vx_cb(v.x));
+                self.on_col_x();
                 hit = true;
             }
 
             // Check for vertical collision.
             let new_b = Square::new(new_x, new_y, s);
-            if new_b.hits_rect(&rect) {
+
+            if bbox.collides_with_sqr(&new_b) {
                 if v.y > 0.0 {
                     // Landing on ground.
-                    new_y = rect.y - s;
-                    self.set_on_ground();
+                    new_y = bbox.y - s;
+                    self.set_on_ground(true);
                 } else {
-                    new_y = rect.y + rect.h;
+                    // Hitting ceiling.
+                    new_y = bbox.b;
                 }
-                self.set_vy(vy_cb(v.y));
+                self.on_col_y();
                 hit = true;
             }
 
+            // Run collision callback if collided.
             if hit {
-                tile.do_collision(rect, self);
+                tile.do_collision(bbox, self);
             }
         }
 

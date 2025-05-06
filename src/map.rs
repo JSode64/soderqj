@@ -1,44 +1,46 @@
-use crate::tile::Tile;
-
 use super::{
     enemies::{Jumper, Walker},
     entity::Entity,
-    geometry::{Rect, Vec2},
+    geometry::{BBox, Vec2},
     tile::TileID,
 };
 use sdl3::{render::Canvas, video::Window, EventPump};
-use std::slice::Iter;
 
 #[derive(Clone, Copy)]
 struct MapLayout {
     /// The map tiles.
-    tiles: &'static [(Rect, TileID)],
+    tiles: &'static [(BBox, TileID)],
 
     /// The map enemies.
-    enemies: &'static [&'static dyn Entity],
+    enemies: &'static [fn() -> Box<dyn Entity>],
 
     /// The player spawn on the map.
     spawn: Vec2,
 }
 
 pub struct Map {
-    tiles: Box<[(Rect, TileID)]>,
+    /// The map tiles.
+    tiles: Box<[(BBox, TileID)]>,
+
+    /// The map enemies.
     enemies: Vec<Box<dyn Entity>>,
+
+    /// The player spawn on the map.
     spawn: Vec2,
 }
 
 impl MapLayout {
     const MAPS: [MapLayout; 1] = [MapLayout {
         tiles: &[
-            (Rect::new(400.0, 701.0, 400.0, 95.0), TileID::LPad),
-            (Rect::new(500.0, 405.0, 300.0, 100.0), TileID::Blck),
-            (Rect::new(700.0, 505.0, 100.0, 100.0), TileID::Blck),
-            (Rect::new(0.0, 700.0, 400.0, 100.0), TileID::Blck),
-            (Rect::new(0.0, 0.0, 100.0, 700.0), TileID::Ladr),
-            (Rect::new(200.0, 150.0, 200.0, 100.0), TileID::Blck),
-            (Rect::new(750.0, 300.0, 50.0, 50.0), TileID::LPad),
+            (BBox::new(400.0, 701.0, 800.0, 796.0), TileID::VPad),
+            (BBox::new(500.0, 405.0, 800.0, 505.0), TileID::Blck),
+            (BBox::new(700.0, 505.0, 800.0, 605.0), TileID::Blck),
+            (BBox::new(0.0, 700.0, 400.0, 800.0), TileID::Blck),
+            (BBox::new(0.0, 0.0, 100.0, 700.0), TileID::Ladr),
+            (BBox::new(200.0, 150.0, 400.0, 250.0), TileID::Blck),
+            (BBox::new(750.0, 0.0, 800.0, 405.0), TileID::HPad),
         ],
-        enemies: &[&Jumper::new(1.0, 1.0)],
+        enemies: &[|| Box::new(Jumper::new(1.0, 1.0))],
         spawn: Vec2::new(350.0, 600.0),
     }];
 }
@@ -50,10 +52,7 @@ impl Map {
 
         Self {
             tiles: Box::from(m.tiles),
-            enemies: vec![
-                Box::new(Jumper::new(600.0, 100.0)),
-                //Box::new(Jumper::new(500.0, 300.0)),
-            ],
+            enemies: m.enemies.iter().map(|f| f()).collect(),
             spawn: m.spawn,
         }
     }
@@ -64,13 +63,8 @@ impl Map {
     }
 
     /// Returns the map's tiles.
-    pub fn get_tiles(&self) -> &[(Rect, TileID)] {
+    pub fn get_tiles(&self) -> &[(BBox, TileID)] {
         &self.tiles
-    }
-
-    /// Returns an iterator over the map's tiles.
-    pub fn tile_iter(&self) -> Iter<'_, (Rect, TileID)> {
-        self.tiles.iter()
     }
 
     /// Updates the map's enemies.

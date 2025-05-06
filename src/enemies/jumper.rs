@@ -1,7 +1,7 @@
 use crate::{
     config::GRAVITY,
     entity::Entity,
-    geometry::{Rect, Square, Vec2},
+    geometry::{BBox, Square, Vec2},
     tile::TileID,
 };
 use sdl3::pixels::Color;
@@ -19,7 +19,7 @@ impl Jumper {
     const S: f32 = 24.0;
 
     /// Horizontal speed.
-    const VX: f32 = -5.0;
+    const VX: f32 = 5.1;
 
     /// Jumping velocity.
     const JMP_VY: f32 = -5.0;
@@ -42,7 +42,7 @@ impl Entity for Jumper {
         self.v
     }
 
-    fn get_color(&self) -> sdl3::pixels::Color {
+    fn get_color(&self) -> Color {
         Color {
             r: 255,
             g: 100,
@@ -51,9 +51,7 @@ impl Entity for Jumper {
         }
     }
 
-    fn set_on_ground(&mut self) {
-        self.v.y = -25.0;
-    }
+    fn set_on_ground(&mut self, _: bool) {}
 
     fn set_pos(&mut self, p: Vec2) {
         self.body.x = p.x;
@@ -68,14 +66,19 @@ impl Entity for Jumper {
         self.v.y = v;
     }
 
-    fn update(&mut self, _: &sdl3::EventPump, map: &[(Rect, TileID)]) {
-        // Move and fall.
-        self.body.x += self.v.x;
-        self.body.y += self.v.y;
-        self.v.y = (self.v.y + GRAVITY).min(5.0);
-        println!("{}, {}", self.v.x, self.v.y);
+    fn on_col_x(&mut self) {
+        self.v.x = -self.v.x.signum() * Self::VX;
+    }
+
+    fn on_col_y(&mut self) {
+        self.v.y = if self.v.y >= 0.0 { -25.0 } else { 0.0 };
+    }
+
+    fn update(&mut self, _: &sdl3::EventPump, map: &[(BBox, TileID)]) {
+        // Fall.
+        self.v.y += GRAVITY;
 
         // Handle map collision. Turn around on walls, handle ceilings and floors regularly.
-        self.do_map_collision(map, |v| -v, |_| -25.0);
+        self.do_map_collision(map);
     }
 }

@@ -1,6 +1,6 @@
 use sdl3::render::FRect;
 
-use super::{Rect, Vec2};
+use super::Vec2;
 
 #[derive(Clone, Copy)]
 pub struct Square {
@@ -24,14 +24,6 @@ impl Square {
     pub const fn center(&self) -> Vec2 {
         let half_s = self.s / 2.0;
         Vec2::new(self.x + half_s, self.y + half_s)
-    }
-
-    /// Returns true if the square hits the rectangle.
-    pub const fn hits_rect(&self, rect: &Rect) -> bool {
-        self.x < rect.x + rect.w
-            && self.x + self.s > rect.x
-            && self.y < rect.y + rect.h
-            && self.y + self.s > rect.y
     }
 }
 

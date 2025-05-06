@@ -1,12 +1,12 @@
 use super::{
     config::GRAVITY,
     entity::Entity,
-    geometry::{Rect, Square, Vec2},
+    geometry::{BBox, Square, Vec2},
     laser::{Direction, Laser},
     map::Map,
     tile::TileID,
 };
-use sdl3::{keyboard::Scancode, pixels::Color, EventPump};
+use sdl3::{keyboard::Scancode, pixels::Color, render::Canvas, video::Window, EventPump};
 
 #[derive(Clone, Copy)]
 pub struct Player {
@@ -59,27 +59,21 @@ impl Player {
     fn do_movement(&mut self, evp: &EventPump) {
         // Get user movement inputs
         let kbs = evp.keyboard_state();
-        /*if kbs.is_scancode_pressed(Scancode::Tab) {
-            *self = Self::new(map);
-            return;
-        }*/
         let a = kbs.is_scancode_pressed(Scancode::A);
         let d = kbs.is_scancode_pressed(Scancode::D);
         let s = kbs.is_scancode_pressed(Scancode::Space);
 
         // Update x-velocity.
         if a != d {
-            if a {
-                self.v.x -= 0.5;
+            if a && self.v.x > -Self::MAX_VX {
+                self.v.x = (self.v.x - 0.5).max(-Self::MAX_VX);
             }
-            if d {
-                self.v.x += 0.5;
+            if d && self.v.x < Self::MAX_VX {
+                self.v.x = (self.v.x + 0.5).min(Self::MAX_VX);
             }
         } else {
-            // Deccelerate, setting x-velocity to zero if already slow.
             self.v.x -= f32::min(Self::DEC_VX, self.v.x.abs()) * self.v.x.signum();
         }
-        self.v.x = self.v.x.clamp(-Self::MAX_VX, Self::MAX_VX);
 
         // Update y-velocity.
         self.v.y += GRAVITY;
@@ -90,7 +84,7 @@ impl Player {
     }
 
     /// Handles the user shooting.
-    pub fn do_shoot(&mut self, evp: &EventPump) {
+    pub fn do_shoot(&mut self, evp: &EventPump, map: &[(BBox, TileID)]) {
         // Can't shoot if the laser is already active.
         if self.laser.is_active() {
             return;
@@ -98,14 +92,15 @@ impl Player {
 
         // Shoot with the first key that is found down.
         let kbs = evp.keyboard_state();
+
         if kbs.is_scancode_pressed(Scancode::Left) {
-            self.laser = Laser::new(self.body.center(), crate::laser::Direction::Left);
+            self.laser = Laser::new(self.body.center(), Direction::Left, map);
         } else if kbs.is_scancode_pressed(Scancode::Right) {
-            self.laser = Laser::new(self.body.center(), Direction::Right);
+            self.laser = Laser::new(self.body.center(), Direction::Right, map);
         } else if kbs.is_scancode_pressed(Scancode::Down) {
-            self.laser = Laser::new(self.body.center(), Direction::Down);
+            self.laser = Laser::new(self.body.center(), Direction::Down, map);
         } else if kbs.is_scancode_pressed(Scancode::Up) {
-            self.laser = Laser::new(self.body.center(), Direction::Up);
+            self.laser = Laser::new(self.body.center(), Direction::Up, map);
         }
     }
 }
@@ -123,8 +118,8 @@ impl Entity for Player {
         Self::COLOR
     }
 
-    fn set_on_ground(&mut self) {
-        self.on_ground = true;
+    fn set_on_ground(&mut self, b: bool) {
+        self.on_ground = b;
     }
 
     fn set_pos(&mut self, p: Vec2) {
@@ -140,10 +135,27 @@ impl Entity for Player {
         self.v.y = v;
     }
 
-    fn update(&mut self, evp: &EventPump, map: &[(Rect, TileID)]) {
+    fn on_col_x(&mut self) {
+        self.v.x = 0.0;
+    }
+
+    fn on_col_y(&mut self) {
+        self.v.y = 0.0;
+    }
+
+    fn draw(&self, cnv: &mut Canvas<Window>) {
+        // Draw laser.
+        self.laser.draw(cnv);
+
+        // Draw player.
+        cnv.set_draw_color(self.get_color());
+        cnv.fill_rect(self.get_body()).unwrap();
+    }
+
+    fn update(&mut self, evp: &EventPump, map: &[(BBox, TileID)]) {
         self.laser.update();
         self.do_movement(evp);
-        self.do_shoot(evp);
-        self.do_map_collision(map, |_| 0.0, |_| 0.0);
+        self.do_shoot(evp, map);
+        self.do_map_collision(map);
     }
 }
