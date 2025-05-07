@@ -27,8 +27,8 @@ impl Square {
     }
 }
 
-impl From<Square> for Option<FRect> {
-    fn from(value: Square) -> Self {
+impl From<&Square> for Option<FRect> {
+    fn from(value: &Square) -> Self {
         Some(FRect::new(value.x, value.y, value.s, value.s))
     }
 }

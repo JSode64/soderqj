@@ -1,10 +1,9 @@
-use crate::tile::TileID;
-
 use super::{
     config::{WIN_B, WIN_H, WIN_W},
-    geometry::{BBox, Square, Vec2},
+    geometry::{Square, Vec2},
+    map::TileIter,
 };
-use sdl3::{pixels::Color, render::Canvas, video::Window, EventPump};
+use sdl3::{keyboard::KeyboardState, pixels::Color, render::Canvas, video::Window};
 
 pub trait Entity {
     /// Returns the entity's body.
@@ -37,17 +36,17 @@ pub trait Entity {
     fn set_on_ground(&mut self, b: bool);
 
     /// Updates the entity.
-    fn update(&mut self, evp: &EventPump, map: &[(BBox, TileID)]);
+    fn update(&mut self, kbs: Option<&KeyboardState>, map: TileIter);
 
     fn draw(&self, cnv: &mut Canvas<Window>) {
         cnv.set_draw_color(self.get_color());
-        cnv.fill_rect(self.get_body()).unwrap();
+        cnv.fill_rect(&self.get_body()).unwrap();
     }
 
     /// Handles entity collision with the map.
     ///
     /// Takes two closures that return the new x and y velocity if collision occurs in either of the planes.
-    fn do_map_collision(&mut self, map: &[(BBox, TileID)])
+    fn do_map_collision(&mut self, map: TileIter)
     where
         Self: Sized,
     {

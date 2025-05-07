@@ -1,10 +1,10 @@
 use crate::{
     config::GRAVITY,
     entity::Entity,
-    geometry::{BBox, Square, Vec2},
-    tile::TileID,
+    geometry::{Square, Vec2},
+    map::TileIter,
 };
-use sdl3::pixels::Color;
+use sdl3::{keyboard::KeyboardState, pixels::Color};
 
 pub struct Jumper {
     /// Jumper's body.
@@ -51,7 +51,9 @@ impl Entity for Jumper {
         }
     }
 
-    fn set_on_ground(&mut self, _: bool) {}
+    fn set_on_ground(&mut self, _: bool) {
+        self.v.y = -25.0;
+    }
 
     fn set_pos(&mut self, p: Vec2) {
         self.body.x = p.x;
@@ -71,10 +73,12 @@ impl Entity for Jumper {
     }
 
     fn on_col_y(&mut self) {
-        self.v.y = if self.v.y >= 0.0 { -25.0 } else { 0.0 };
+        if self.v.y < 0.0 {
+            self.v.y = 0.0;
+        }
     }
 
-    fn update(&mut self, _: &sdl3::EventPump, map: &[(BBox, TileID)]) {
+    fn update(&mut self, _: Option<&KeyboardState>, map: TileIter) {
         // Fall.
         self.v.y += GRAVITY;
 

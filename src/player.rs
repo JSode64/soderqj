@@ -1,12 +1,16 @@
 use super::{
     config::GRAVITY,
     entity::Entity,
-    geometry::{BBox, Square, Vec2},
+    geometry::{Square, Vec2},
     laser::{Direction, Laser},
-    map::Map,
-    tile::TileID,
+    map::TileIter,
 };
-use sdl3::{keyboard::Scancode, pixels::Color, render::Canvas, video::Window, EventPump};
+use sdl3::{
+    keyboard::{KeyboardState, Scancode},
+    pixels::Color,
+    render::Canvas,
+    video::Window,
+};
 
 #[derive(Clone, Copy)]
 pub struct Player {
@@ -44,21 +48,25 @@ impl Player {
         a: 255,
     };
 
-    /// Constructs a new player.
-    pub fn new(map: &Map) -> Self {
+    /// Constructs a new player with the given position.
+    pub fn new(p: Vec2) -> Self {
         Self {
             laser: Laser::new_inactive(),
-            body: Square::new(map.get_spawn().x, map.get_spawn().y, Self::S),
+            body: Square::new(p.x, p.y, Self::S),
             v: Vec2::zero(),
             on_ground: false,
         }
     }
 
+    /// Returns a reference to the player's laser.
+    pub fn get_laser(&self) -> &Laser {
+        &self.laser
+    }
+
     /// Moves the player.
     /// Updates according to user input.
-    fn do_movement(&mut self, evp: &EventPump) {
+    fn do_movement(&mut self, kbs: &KeyboardState) {
         // Get user movement inputs
-        let kbs = evp.keyboard_state();
         let a = kbs.is_scancode_pressed(Scancode::A);
         let d = kbs.is_scancode_pressed(Scancode::D);
         let s = kbs.is_scancode_pressed(Scancode::Space);
@@ -84,15 +92,13 @@ impl Player {
     }
 
     /// Handles the user shooting.
-    pub fn do_shoot(&mut self, evp: &EventPump, map: &[(BBox, TileID)]) {
+    pub fn do_shoot(&mut self, kbs: &KeyboardState, map: TileIter) {
         // Can't shoot if the laser is already active.
         if self.laser.is_active() {
             return;
         }
 
         // Shoot with the first key that is found down.
-        let kbs = evp.keyboard_state();
-
         if kbs.is_scancode_pressed(Scancode::Left) {
             self.laser = Laser::new(self.body.center(), Direction::Left, map);
         } else if kbs.is_scancode_pressed(Scancode::Right) {
@@ -149,13 +155,13 @@ impl Entity for Player {
 
         // Draw player.
         cnv.set_draw_color(self.get_color());
-        cnv.fill_rect(self.get_body()).unwrap();
+        cnv.fill_rect(&self.body).unwrap();
     }
 
-    fn update(&mut self, evp: &EventPump, map: &[(BBox, TileID)]) {
+    fn update(&mut self, evp: Option<&KeyboardState>, map: TileIter) {
         self.laser.update();
-        self.do_movement(evp);
-        self.do_shoot(evp, map);
+        self.do_movement(evp.unwrap());
+        self.do_shoot(evp.unwrap(), map.clone());
         self.do_map_collision(map);
     }
 }

@@ -8,7 +8,6 @@ pub enum TileID {
     VPad, // Vertical launch pad: launches the player away vertically.
     HPad, // Horiontal launch pad: launches the player away horizontally.
     Ladr, // Ladder: allows the player to jump off of it.
-    Plat, // Platform: allowed the player to jump up onto it but not down through it.
 }
 
 #[derive(Debug)]

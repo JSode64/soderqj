@@ -1,7 +1,7 @@
 use super::{
     config::{WIN_H, WIN_W},
-    geometry::{BBox, Vec2},
-    tile::TileID,
+    geometry::{Square, Vec2},
+    map::TileIter,
 };
 use sdl3::{pixels::Color, render::Canvas, video::Window};
 
@@ -29,7 +29,7 @@ pub struct Laser {
 
 impl Laser {
     /// Returns a new laser with the given base and direction with a full timer.
-    pub fn new(beg: Vec2, dir: Direction, map: &[(BBox, TileID)]) -> Self {
+    pub fn new(beg: Vec2, dir: Direction, map: TileIter) -> Self {
         Self {
             beg,
             end: Self::get_laser_end(beg, dir, map),
@@ -44,6 +44,15 @@ impl Laser {
             end: Vec2::zero(),
             time: 0,
         }
+    }
+
+    /// True if the laser is active and hits the given square, else false.
+    pub fn hits_square(&self, sqr: &Square) -> bool {
+        self.time > 0
+            && self.beg.x.min(self.end.x) <= sqr.x + sqr.s
+            && self.beg.x.max(self.end.x) >= sqr.x
+            && self.beg.y.min(self.end.y) <= sqr.y + sqr.s
+            && self.beg.y.max(self.end.y) >= sqr.y
     }
 
     /// True if the laser is active (timer isn't done), else false.
@@ -73,7 +82,7 @@ impl Laser {
 
     /// Returns the laser's end based on its start, end, and direction.
     /// Stops the laser short from passing through tiles.
-    fn get_laser_end(beg: Vec2, dir: Direction, map: &[(BBox, TileID)]) -> Vec2 {
+    fn get_laser_end(beg: Vec2, dir: Direction, map: TileIter) -> Vec2 {
         let mut result = match dir {
             Direction::Left => Vec2::new(0.0, beg.y),
             Direction::Right => Vec2::new(WIN_W as _, beg.y),

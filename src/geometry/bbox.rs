@@ -48,8 +48,8 @@ impl BBox {
     }
 }
 
-impl From<BBox> for Option<FRect> {
-    fn from(value: BBox) -> Self {
+impl From<&BBox> for Option<FRect> {
+    fn from(value: &BBox) -> Self {
         Some(FRect::new(
             value.x,
             value.y,

@@ -1,10 +1,10 @@
 use super::super::{
     config::GRAVITY,
     entity::Entity,
-    geometry::{BBox, Square, Vec2},
-    tile::TileID,
+    geometry::{Square, Vec2},
+    map::TileIter,
 };
-use sdl3::pixels::Color;
+use sdl3::{keyboard::KeyboardState, pixels::Color};
 
 /// An enemy that simply walks.
 /// Once it hits a wall, it turns around.
@@ -73,7 +73,7 @@ impl Entity for Walker {
         self.v.y = 0.0;
     }
 
-    fn update(&mut self, _: &sdl3::EventPump, map: &[(BBox, TileID)]) {
+    fn update(&mut self, _: Option<&KeyboardState>, map: TileIter) {
         // Fall.
         self.v.y += GRAVITY;
 

@@ -1,13 +1,21 @@
 use super::{
+    enemies::EnemyVec,
     enemies::{Jumper, Walker},
     entity::Entity,
     geometry::{BBox, Vec2},
+    player::Player,
     tile::TileID,
 };
-use sdl3::{render::Canvas, video::Window, EventPump};
+use sdl3::{
+    keyboard::{KeyboardState, Scancode},
+    render::Canvas,
+    video::Window,
+};
+use std::slice::Iter;
 
+/// A layout for a map.
 #[derive(Clone, Copy)]
-struct MapLayout {
+pub struct Map {
     /// The map tiles.
     tiles: &'static [(BBox, TileID)],
 
@@ -16,21 +24,49 @@ struct MapLayout {
 
     /// The player spawn on the map.
     spawn: Vec2,
+
+    /// The map index.
+    i: usize,
 }
 
-pub struct Map {
-    /// The map tiles.
-    tiles: Box<[(BBox, TileID)]>,
+/// The iterator type for map tiles.
+pub type TileIter = Iter<'static, (BBox, TileID)>;
 
-    /// The map enemies.
-    enemies: Vec<Box<dyn Entity>>,
+impl Map {
+    /// Returns an initialized game state from the given index.
+    pub fn init_game(i: usize) -> (&'static Self, Player, EnemyVec) {
+        let m = &Self::MAPS[i];
 
-    /// The player spawn on the map.
-    spawn: Vec2,
-}
+        (
+            &Self::MAPS[i],
+            Player::new(m.spawn),
+            m.enemies.into_iter().map(|f| f()).collect(),
+        )
+    }
 
-impl MapLayout {
-    const MAPS: [MapLayout; 1] = [MapLayout {
+    /// Returns an iterator of the map's tiles.
+    pub fn tile_iter(&self) -> TileIter {
+        self.tiles.iter()
+    }
+
+    /// Updates the game state; resetting the state if tab was pressed.
+    pub fn update(&self, kbs: &KeyboardState, p: &mut Player, e: &mut EnemyVec) {
+        // If tab is pressed, reset.
+        if kbs.is_scancode_pressed(Scancode::Tab) {
+            (_, *p, *e) = Self::init_game(self.i);
+        }
+    }
+
+    /// Draws the map.
+    pub fn draw(&self, cnv: &mut Canvas<Window>) {
+        for (b, t) in self.tiles.into_iter() {
+            cnv.set_draw_color(t.get_color());
+            cnv.fill_rect(b).unwrap();
+        }
+    }
+
+    /// Constant initial states for all maps in the game.
+    const MAPS: [Map; 1] = [Map {
         tiles: &[
             (BBox::new(400.0, 701.0, 800.0, 796.0), TileID::VPad),
             (BBox::new(500.0, 405.0, 800.0, 505.0), TileID::Blck),
@@ -40,51 +76,11 @@ impl MapLayout {
             (BBox::new(200.0, 150.0, 400.0, 250.0), TileID::Blck),
             (BBox::new(750.0, 0.0, 800.0, 405.0), TileID::HPad),
         ],
-        enemies: &[|| Box::new(Jumper::new(1.0, 1.0))],
+        enemies: &[
+            || Box::new(Jumper::new(150.0, 50.0)),
+            || Box::new(Walker::new(400.0, 0.0)),
+        ],
         spawn: Vec2::new(350.0, 600.0),
+        i: 0,
     }];
-}
-
-impl Map {
-    /// Returns the grid from the given index.
-    pub fn get(i: usize) -> Self {
-        let m = MapLayout::MAPS[i];
-
-        Self {
-            tiles: Box::from(m.tiles),
-            enemies: m.enemies.iter().map(|f| f()).collect(),
-            spawn: m.spawn,
-        }
-    }
-
-    /// Returns the map's player spawn location.
-    pub fn get_spawn(&self) -> Vec2 {
-        self.spawn
-    }
-
-    /// Returns the map's tiles.
-    pub fn get_tiles(&self) -> &[(BBox, TileID)] {
-        &self.tiles
-    }
-
-    /// Updates the map's enemies.
-    pub fn update(&mut self, evp: &EventPump) {
-        for e in self.enemies.iter_mut() {
-            e.update(evp, &self.tiles);
-        }
-    }
-
-    /// Draws the grid.
-    pub fn draw(&self, cnv: &mut Canvas<Window>) {
-        // Draw tiles.
-        for &(body, tile) in &self.tiles {
-            cnv.set_draw_color(tile.get_color());
-            cnv.fill_rect(body).unwrap();
-        }
-
-        // Draw enemies.
-        for e in &self.enemies {
-            e.draw(cnv);
-        }
-    }
 }
