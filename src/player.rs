@@ -1,5 +1,6 @@
 use super::{
     config::GRAVITY,
+    enemies::EnemyVec,
     entity::Entity,
     geometry::{Square, Vec2},
     laser::{Direction, Laser},
@@ -25,11 +26,14 @@ pub struct Player {
 
     /// Tracks whether the player is on the ground or not.
     on_ground: bool,
+
+    /// Tracks whether the player is dead or not.
+    is_alive: bool,
 }
 
 impl Player {
     /// Player body size (width and height).
-    const S: f32 = 32.0;
+    pub const S: f32 = 32.0;
 
     /// Max player x-velocity.
     const MAX_VX: f32 = 10.0;
@@ -55,6 +59,7 @@ impl Player {
             body: Square::new(p.x, p.y, Self::S),
             v: Vec2::zero(),
             on_ground: false,
+            is_alive: true,
         }
     }
 
@@ -63,8 +68,18 @@ impl Player {
         &self.laser
     }
 
-    /// Moves the player.
-    /// Updates according to user input.
+    /// Updates the player's living status based on the given enemies.
+    pub fn do_enemy_check(&mut self, es: &EnemyVec) {
+        // If the player collides with an enemies, kill the player.
+        for e in es {
+            if e.get_body().collides_with(&self.body) {
+                self.kill();
+                break;
+            }
+        }
+    }
+
+    /// Updates the player's velocity based on user input.
     fn do_movement(&mut self, kbs: &KeyboardState) {
         // Get user movement inputs
         let a = kbs.is_scancode_pressed(Scancode::A);
@@ -92,7 +107,7 @@ impl Player {
     }
 
     /// Handles the user shooting.
-    pub fn do_shoot(&mut self, kbs: &KeyboardState, map: TileIter) {
+    fn do_shoot(&mut self, kbs: &KeyboardState, map: TileIter) {
         // Can't shoot if the laser is already active.
         if self.laser.is_active() {
             return;
@@ -124,6 +139,10 @@ impl Entity for Player {
         Self::COLOR
     }
 
+    fn is_alive(&self) -> bool {
+        self.is_alive
+    }
+
     fn set_on_ground(&mut self, b: bool) {
         self.on_ground = b;
     }
@@ -139,6 +158,10 @@ impl Entity for Player {
 
     fn set_vy(&mut self, v: f32) {
         self.v.y = v;
+    }
+
+    fn kill(&mut self) {
+        self.is_alive = false;
     }
 
     fn on_col_x(&mut self) {

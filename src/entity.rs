@@ -15,6 +15,9 @@ pub trait Entity {
     /// Returns the color of the entity.
     fn get_color(&self) -> Color;
 
+    /// Returns true if the entity is alive, else false.    
+    fn is_alive(&self) -> bool;
+
     /// Sets the entity's position to the given one.
     fn set_pos(&mut self, p: Vec2);
 
@@ -23,6 +26,9 @@ pub trait Entity {
 
     /// Sets the entity's y-velocity to the given one.
     fn set_vy(&mut self, v: f32);
+
+    /// Kills the entity.
+    fn kill(&mut self);
 
     /// Called when the entity collides with something horizontally.
     /// Should handle updating the x-velocity.

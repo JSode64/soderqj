@@ -25,6 +25,14 @@ impl Square {
         let half_s = self.s / 2.0;
         Vec2::new(self.x + half_s, self.y + half_s)
     }
+
+    /// Returns true if the squares collide, else false.   
+    pub const fn collides_with(&self, other: &Self) -> bool {
+        self.x <= other.x + other.s
+            && self.x + self.s >= other.x
+            && self.y <= other.y + other.s
+            && self.y + self.s >= other.y
+    }
 }
 
 impl From<&Square> for Option<FRect> {

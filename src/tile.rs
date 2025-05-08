@@ -8,6 +8,7 @@ pub enum TileID {
     VPad, // Vertical launch pad: launches the player away vertically.
     HPad, // Horiontal launch pad: launches the player away horizontally.
     Ladr, // Ladder: allows the player to jump off of it.
+    Fire, // Fire: kills entities that touch it.
 }
 
 #[derive(Debug)]
@@ -32,7 +33,7 @@ impl TileID {
 }
 
 impl Tile {
-    const TILES: [Tile; 4] = [
+    const TILES: [Tile; 5] = [
         // `Blck` (block):
         Tile {
             col_cb: |_, _| {},
@@ -45,13 +46,9 @@ impl Tile {
         },
         // `VPad` (vertical launch pad):
         Tile {
-            col_cb: |b, e| {
+            col_cb: |_, e| {
                 // Launch up if above and down if below.
-                e.set_vy(if e.get_body().center().y >= b.center().y {
-                    -25.0
-                } else {
-                    25.0
-                });
+                e.set_vy(-30.0);
 
                 // Prevents jumping on the pad from being a normal jump.
                 e.set_on_ground(false);
@@ -87,6 +84,16 @@ impl Tile {
                 r: 255,
                 g: 225,
                 b: 125,
+                a: 255,
+            },
+        },
+        // `Fire` (fire):
+        Tile {
+            col_cb: |_, e| e.kill(),
+            color: Color {
+                r: 100,
+                g: 0,
+                b: 20,
                 a: 255,
             },
         },

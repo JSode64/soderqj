@@ -32,7 +32,8 @@ fn main() {
     let mut prv = Instant::now();
 
     // Prepare game state.
-    let (m, mut p, mut e) = Map::init_game(0);
+    let mut i = 0;
+    let (mut m, mut p, mut e) = Map::init_game(i);
 
     loop {
         // Stop running if the window was closed.
@@ -45,7 +46,14 @@ fn main() {
 
         p.update(Some(&kbs), m.tile_iter());
         update_enemies(&mut e, &p, m.tile_iter());
+        p.do_enemy_check(&e);
         m.update(&kbs, &mut p, &mut e);
+
+        // If no enemies left, go to the next map.
+        if e.is_empty() {
+            i = (i + 1) % Map::N;
+            (m, p, e) = Map::init_game(i);
+        }
 
         // Draw game state.
         m.draw(&mut cnv);

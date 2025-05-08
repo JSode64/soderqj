@@ -14,11 +14,14 @@ pub struct Walker {
 
     /// Velocity.
     v: Vec2,
+
+    /// Living status boolean.
+    is_alive: bool,
 }
 
 impl Walker {
     /// Body side length.
-    const S: f32 = 28.0;
+    pub const S: f32 = 28.0;
 
     /// Horizontal speed.
     const VX: f32 = 7.6;
@@ -28,6 +31,7 @@ impl Walker {
         Self {
             body: Square::new(x, y, Self::S),
             v: Vec2::new(Self::VX, 0.0),
+            is_alive: true,
         }
     }
 }
@@ -50,6 +54,10 @@ impl Entity for Walker {
         }
     }
 
+    fn is_alive(&self) -> bool {
+        self.is_alive
+    }
+
     fn set_on_ground(&mut self, _: bool) {}
 
     fn set_pos(&mut self, p: Vec2) {
@@ -63,6 +71,10 @@ impl Entity for Walker {
 
     fn set_vy(&mut self, v: f32) {
         self.v.y = v;
+    }
+
+    fn kill(&mut self) {
+        self.is_alive = false;
     }
 
     fn on_col_x(&mut self) {

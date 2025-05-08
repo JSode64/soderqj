@@ -9,8 +9,8 @@ pub fn update_enemies(e: &mut EnemyVec, p: &Player, map: TileIter) {
     // Update enemies.
     e.iter_mut().for_each(|e| e.update(None, map.clone()));
 
-    // Delete enemies that are killed by the laser.
-    e.retain(|e| !p.get_laser().hits_square(&e.get_body()));
+    // Delete enemies that are already dead or are hit by the laser.
+    e.retain(|e| e.is_alive() && !p.get_laser().hits_square(&e.get_body()));
 }
 
 /// Draws the enemies.
